@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:hello_world/screen/home_screen.dart'; // Ensure this path is correct
-import 'package:hello_world/service/theme_manager.dart'; // Ensure this path is correct
+import 'package:hello_world/screen/home_screen.dart';
+import 'package:hello_world/service/theme_manager.dart';
+import 'package:hello_world/service/profile_manager.dart';
+import 'package:provider/provider.dart';
 
-// Import the local_auth package
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart'; // For PlatformException
+// import 'package:provider/provider.dart'; // For PlatformException
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => ThemeManager(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeManager()),
+        ChangeNotifierProvider(create: (_) => ProfileManager()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -43,8 +47,10 @@ Future<bool> _authenticateUser() async {
       didAuthenticate = await auth.authenticate(
         localizedReason: 'Please authenticate to access the app',
         options: const AuthenticationOptions(
-          stickyAuth: true, // Keep the authentication dialog visible if the app goes to the background
-          useErrorDialogs: true, // Show system-provided error dialogs for issues
+          stickyAuth:
+              true, // Keep the authentication dialog visible if the app goes to the background
+          useErrorDialogs:
+              true, // Show system-provided error dialogs for issues
           biometricOnly: false, // Allow fallback to device PIN/Pattern/Passcode
         ),
       );
@@ -171,15 +177,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 Text(
                   'App Locked',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   'Please authenticate to continue',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 30),
                 ElevatedButton.icon(
@@ -189,7 +195,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 30,
+                      vertical: 15,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),

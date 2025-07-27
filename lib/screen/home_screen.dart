@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hello_world/features/settings_bottom_sheet.dart'; // Updated import path
 import 'package:hello_world/features/about_bottom_sheet.dart'; // Updated import path
 import 'package:hello_world/features/add_activity_bottom_sheet.dart'; // New import for add activity bottom sheet
+import 'package:hello_world/service/profile_manager.dart';
 import 'package:hello_world/service/theme_manager.dart'; // Import theme manager
 import 'package:provider/provider.dart'; // Import provider
 import 'package:table_calendar/table_calendar.dart'; // Import table_calendar
@@ -20,7 +21,8 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  bool _isCalendarVisible = false; // Changed to false to hide calendar initially
+  bool _isCalendarVisible =
+      false; // Changed to false to hide calendar initially
   late AnimationController _animationController;
   String _animatedText = '';
   bool _isAnimating = false;
@@ -37,41 +39,60 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // Register the observer
+    WidgetsBinding.instance.addObserver(this);
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3000),
     );
 
-    // Start the initial greeting animation only after the first frame is built
-    // and preferences are loaded.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final themeManager = Provider.of<ThemeManager>(context, listen: false);
-      if (themeManager.preferencesLoaded && !_hasInitialGreetingAnimated) {
+      final profileManager = Provider.of<ProfileManager>(context, listen: false);
+      
+      // Check if both theme and profile are ready
+      if (themeManager.preferencesLoaded && 
+          profileManager.currentProfile != null && 
+          !_hasInitialGreetingAnimated) {
         _startGreetingAnimation();
         _hasInitialGreetingAnimated = true;
-      } else if (!themeManager.preferencesLoaded) {
-        // If preferences are not yet loaded, listen for them
+      } else if (!themeManager.preferencesLoaded || profileManager.currentProfile == null) {
+        // Listen to both managers for changes
         themeManager.addListener(_startInitialGreetingOnPreferencesLoad);
+        profileManager.addListener(_startInitialGreetingOnPreferencesLoad);
       }
     });
   }
 
   void _startInitialGreetingOnPreferencesLoad() {
+    if (!mounted) return;
+    
     final themeManager = Provider.of<ThemeManager>(context, listen: false);
-    if (themeManager.preferencesLoaded && mounted && !_hasInitialGreetingAnimated) {
+    final profileManager = Provider.of<ProfileManager>(context, listen: false);
+    
+    if (themeManager.preferencesLoaded &&
+        profileManager.currentProfile != null &&
+        !_hasInitialGreetingAnimated) {
       _startGreetingAnimation();
       _hasInitialGreetingAnimated = true;
-      themeManager.removeListener(_startInitialGreetingOnPreferencesLoad); // Remove listener once done
+      // Remove both listeners
+      themeManager.removeListener(_startInitialGreetingOnPreferencesLoad);
+      profileManager.removeListener(_startInitialGreetingOnPreferencesLoad);
     }
   }
 
   @override
   void dispose() {
     _cursorTimer?.cancel();
-    WidgetsBinding.instance.removeObserver(this); // Unregister the observer
-    Provider.of<ThemeManager>(context, listen: false)
-        .removeListener(_startInitialGreetingOnPreferencesLoad); // Ensure to remove this listener too
+    WidgetsBinding.instance.removeObserver(this);
+    
+    // Remove listeners from both managers
+    if (mounted) {
+      Provider.of<ThemeManager>(context, listen: false)
+          .removeListener(_startInitialGreetingOnPreferencesLoad);
+      Provider.of<ProfileManager>(context, listen: false)
+          .removeListener(_startInitialGreetingOnPreferencesLoad);
+    }
+    
     _animationController.dispose();
     super.dispose();
   }
@@ -88,8 +109,13 @@ class _HomeScreenState extends State<HomeScreen>
     // Only run if not currently animating
     if (_isAnimating || !mounted) return;
 
-    final themeManager = Provider.of<ThemeManager>(context, listen: false);
-    final String userName = themeManager.userName;
+    // Add listen: false to prevent rebuild notifications
+    final profile = Provider.of<ProfileManager>(
+      context,
+      listen: false,
+    ).currentProfile;
+    final String userName =
+        profile?.profileName ?? 'Unknown'; // Changed 'unknown' to 'Guest'
     final String fullText = '${_getGreeting()} I am $userName';
 
     // Cancel any ongoing animation and reset
@@ -130,11 +156,13 @@ class _HomeScreenState extends State<HomeScreen>
           _isAnimating = false;
           _showCursor = false;
         });
-        _cursorTimer?.cancel(); // Ensure cursor timer is cancelled when typing is complete
+        _cursorTimer
+            ?.cancel(); // Ensure cursor timer is cancelled when typing is complete
         return;
       }
 
-      bool makeMistake = currentIndex > 2 && random.nextBool() && random.nextInt(5) == 0;
+      bool makeMistake =
+          currentIndex > 2 && random.nextBool() && random.nextInt(5) == 0;
 
       if (makeMistake) {
         String wrongChar = _getRandomChar(exclude: fullText[currentIndex]);
@@ -191,7 +219,8 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     // This code will execute when the bottom sheet is dismissed
-    if (mounted) { // Ensure the widget is still mounted before animating
+    if (mounted) {
+      // Ensure the widget is still mounted before animating
       _startGreetingAnimation();
     }
   }
@@ -216,11 +245,21 @@ class _HomeScreenState extends State<HomeScreen>
   String getActivityTitle(DateTime selectedDate) {
     final DateTime now = DateTime.now();
     final DateTime today = DateTime(now.year, now.month, now.day);
-    final DateTime selected = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+    final DateTime selected = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
     final int diffDays = selected.difference(today).inDays;
 
     final List<String> weekdayNames = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
     ];
     final String selectedWeekdayName = weekdayNames[selected.weekday - 1];
 
@@ -236,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen>
     final int selectedWeekday = selected.weekday;
 
     if (selected.isBefore(today)) {
-      if (diffDays >= -7 && selectedWeekday <= todayWeekday) {
+      if (diffDays >= -7 && diffDays <= 2) {
         return 'What did I do last $selectedWeekdayName?';
       } else {
         if (selected.year == today.year - 1) {
@@ -265,7 +304,8 @@ class _HomeScreenState extends State<HomeScreen>
     // Determine the AppBar title based on the selected/focused day
     String activityTitle;
     final DateTime comparisonDay =
-        _selectedDay ?? _focusedDay; // Prefer selected day, otherwise focused day
+        _selectedDay ??
+        _focusedDay; // Prefer selected day, otherwise focused day
     activityTitle = getActivityTitle(comparisonDay);
     return PopScope(
       // Add PopScope to handle back button
@@ -282,36 +322,78 @@ class _HomeScreenState extends State<HomeScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-          toolbarHeight: 80.0, // Make the AppBar a little bit longer
-          title: Align(
-            // Align the title to the left
-            alignment: Alignment.centerLeft,
+  toolbarHeight: 80.0,
+  titleSpacing: 16,
+  title: LayoutBuilder(
+    builder: (context, constraints) {
+      final maxWidth = constraints.maxWidth;
+
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Profile Emoji Avatar (on left)
+          Consumer<ProfileManager>(
+            builder: (_, profileManager, __) {
+              final emoji = profileManager.currentProfile?.profileImage ?? '🙂';
+              return CircleAvatar(
+                radius: 26,
+                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                child: Text(
+                  emoji,
+                  style: const TextStyle(fontSize: 26),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+
+          // Text Column
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '$_animatedText${_showCursor && _isAnimating ? "|" : ""}',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxWidth * 0.7),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '$_animatedText${_showCursor && _isAnimating ? "|" : ""}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textScaleFactor: 1.0,
+                    ),
+                  ),
                 ),
-                Text(
-                  activityTitle, // Activity-related title
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onPrimaryContainer, // Adjust color for contrast
-                      ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 4),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxWidth * 0.7),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      activityTitle,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textScaleFactor: 1.0,
+                    ),
+                  ),
                 ),
               ],
-            ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           actions: [
             PopupMenuButton<String>(
@@ -338,42 +420,57 @@ class _HomeScreenState extends State<HomeScreen>
         body: Column(
           children: [
             // Today's Date Bar (Material 3 Card)
-            Padding( // Added Padding for overall spacing
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            Padding(
+              // Added Padding for overall spacing
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
               child: Card(
                 elevation: 4, // Increased elevation for a more prominent shadow
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.0), // More rounded corners
+                  borderRadius: BorderRadius.circular(
+                    16.0,
+                  ), // More rounded corners
                 ),
-                child: InkWell( // Use InkWell for Material ripple effect on tap
+                child: InkWell(
+                  // Use InkWell for Material ripple effect on tap
                   onTap: () {
                     setState(() {
-                      _isCalendarVisible = !_isCalendarVisible; // Toggle calendar visibility
+                      _isCalendarVisible =
+                          !_isCalendarVisible; // Toggle calendar visibility
                     });
                   },
-                  borderRadius: BorderRadius.circular(16.0), // Match InkWell's ripple to card shape
+                  borderRadius: BorderRadius.circular(
+                    16.0,
+                  ), // Match InkWell's ripple to card shape
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20.0, // Increased horizontal padding
-                      vertical: 16.0,  // Increased vertical padding
+                      vertical: 16.0, // Increased vertical padding
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween, // Space out text and icon
+                      mainAxisAlignment: MainAxisAlignment
+                          .spaceBetween, // Space out text and icon
                       children: [
                         Expanded(
                           child: Text(
                             formattedDate,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
                                   color: Theme.of(context).colorScheme.primary,
                                   fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5, // Slightly increased letter spacing
+                                  letterSpacing:
+                                      0.5, // Slightly increased letter spacing
                                 ),
                           ),
                         ),
                         Icon(
                           _isCalendarVisible
-                              ? Icons.keyboard_arrow_up_rounded // Slightly changed icon for rounded aesthetic
-                              : Icons.keyboard_arrow_down_rounded, // Slightly changed icon
+                              ? Icons
+                                    .keyboard_arrow_up_rounded // Slightly changed icon for rounded aesthetic
+                              : Icons
+                                    .keyboard_arrow_down_rounded, // Slightly changed icon
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           size: 28, // Slightly larger icon
                         ),

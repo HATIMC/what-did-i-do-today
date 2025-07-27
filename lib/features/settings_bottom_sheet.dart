@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hello_world/features/profile_selector_bottom_sheet.dart';
+import 'package:hello_world/service/profile_manager.dart';
 import 'package:hello_world/service/theme_manager.dart'; // Import the theme manager
 import 'package:provider/provider.dart'; // Import provider package
-import 'package:flutter/services.dart';
 
 class SettingsBottomSheet extends StatefulWidget {
   const SettingsBottomSheet({super.key});
@@ -28,9 +29,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   void initState() {
     super.initState();
     // Initialize controller with current user name from ThemeManager
-    _nameController = TextEditingController(
-      text: Provider.of<ThemeManager>(context, listen: false).userName,
-    );
+    _nameController = TextEditingController();
   }
 
   @override
@@ -43,6 +42,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   Widget build(BuildContext context) {
     // Access the ThemeManager
     final themeManager = Provider.of<ThemeManager>(context);
+    final profileManager = Provider.of<ProfileManager>(context);
+    final currentProfile = profileManager.currentProfile;
 
     // Determine the current effective brightness of the app
     final bool isCurrentlyDarkMode =
@@ -55,6 +56,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Drag handle
             Center(
               child: Container(
                 width: 40,
@@ -68,25 +70,66 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             ),
             Text('Settings', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 16),
-            // User Name Text Field - MOVED HERE
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Your Name',
-                hintText: 'Guest', // Hint text for default
-                border: const OutlineInputBorder(),
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceVariant,
-              ),
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(
-                  15,
-                ), // Limit input to 15 characters
+            // Profile Section
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Current Profile",
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
+                        ),
+                        builder: (_) => const ProfileSelectorBottomSheet(),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            currentProfile?.profileImage ?? "🙂",
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              currentProfile?.profileName ?? "Select Profile",
+                              style: Theme.of(context).textTheme.titleMedium,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
-              onChanged: (value) {
-                // Update user name in ThemeManager
-                themeManager.setUserName(value.isEmpty ? 'Guest' : value);
-              },
             ),
             const SizedBox(height: 16),
             // Dark Mode Toggle
@@ -139,28 +182,6 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   ),
                 );
               }).toList(),
-            ),
-            const Divider(),
-            const Text('This is where your settings options will go.'),
-            const Text('Option 1: Enable notifications'),
-            const Text('Option 2: Change theme'),
-            const Text('Option 3: Manage data'),
-            const Text('Option 4: Privacy settings'),
-            const Text('Option 5: Account management'),
-            const Text(
-              'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-            ),
-            const Text(
-              'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-            ),
-            const Text(
-              'Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
-            ),
-            const Text(
-              'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.',
-            ),
-            const Text(
-              'Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
             ),
             const SizedBox(height: 16),
             Align(

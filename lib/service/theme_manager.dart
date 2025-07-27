@@ -7,14 +7,11 @@ class ThemeManager extends ChangeNotifier {
 
   ThemeMode _themeMode = ThemeMode.system; // Default to system theme
   Color _seedColor = Colors.deepPurple; // Default Material 3 seed color
-  String _userName = 'Guest'; // New: Default user name
   static const String _themeKey = 'app_theme_mode';
   static const String _colorKey = 'app_seed_color';
-  static const String _userNameKey = 'user_name'; // New: Key for user name
 
   ThemeMode get themeMode => _themeMode;
   Color get seedColor => _seedColor;
-  String get userName => _userName; // New: Getter for user name
 
   ThemeManager() {
     _loadThemePreferences(); // Load both theme mode, color, and user name when the manager is created
@@ -44,8 +41,6 @@ class ThemeManager extends ChangeNotifier {
     }
 
     // Load user name
-    _userName = prefs.getString(_userNameKey) ?? 'Guest'; // Fallback to 'Guest'
-
     _preferencesLoaded = true;
     notifyListeners();
   }
@@ -66,7 +61,6 @@ class ThemeManager extends ChangeNotifier {
 
   // New: Sets a new user name and saves the preference
   void setUserName(String name) {
-    _userName = name;
     _saveThemePreferences(); // Save all current preferences
     notifyListeners(); // Notify listeners about the change
   }
@@ -76,7 +70,6 @@ class ThemeManager extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_themeKey, _themeMode.index);
     await prefs.setInt(_colorKey, _seedColor.value);
-    await prefs.setString(_userNameKey, _userName); // Save user name
   }
 
   // You can also add a method to set theme based on system preference
