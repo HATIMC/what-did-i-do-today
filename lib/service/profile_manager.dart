@@ -8,8 +8,10 @@ class ProfileManager extends ChangeNotifier {
 
   List<Profile> _profiles = [];
   String? _currentProfileId;
+  bool _isLoaded = false; // Track if initial load is complete
 
   List<Profile> get profiles => _profiles;
+  bool get isLoaded => _isLoaded; // Getter for loading state
 
   /// Safely return the current profile or null
   Profile? get currentProfile {
@@ -33,18 +35,10 @@ class ProfileManager extends ChangeNotifier {
 
     _currentProfileId = prefs.getString(_currentProfileIdKey);
 
-    // If no profiles, create Guest
-    if (_profiles.isEmpty) {
-      final guest = Profile(
-        profileId: 'guest',
-        profileName: 'Guest',
-        profileImage: '❓',
-      );
-      _profiles.add(guest);
-      _currentProfileId = guest.profileId;
-      await _saveProfiles();
-    }
+    // Mark as loaded after loading from SharedPreferences
+    _isLoaded = true;
 
+    // Don't create Guest profile automatically - let the UI handle empty state
     notifyListeners();
   }
 
@@ -106,8 +100,13 @@ class ProfileManager extends ChangeNotifier {
     }
   }
 
-  /// Optional: Delete a profile
-  Future<void> deleteProfile(String profileId) async {
+  /// Delete a profile (only if more than one profile exists)
+  Future<bool> deleteProfile(String profileId) async {
+    // Prevent deletion if this is the only profile
+    if (_profiles.length <= 1) {
+      return false; // Deletion not allowed
+    }
+
     _profiles.removeWhere((p) => p.profileId == profileId);
     if (_currentProfileId == profileId) {
       _currentProfileId = _profiles.isNotEmpty
@@ -116,6 +115,7 @@ class ProfileManager extends ChangeNotifier {
     }
     await _saveProfiles();
     notifyListeners();
+    return true; // Deletion successful
   }
 }
 
