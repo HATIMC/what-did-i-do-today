@@ -47,15 +47,19 @@ class _HomeScreenState extends State<HomeScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final themeManager = Provider.of<ThemeManager>(context, listen: false);
-      final profileManager = Provider.of<ProfileManager>(context, listen: false);
-      
+      final profileManager = Provider.of<ProfileManager>(
+        context,
+        listen: false,
+      );
+
       // Check if both theme and profile are ready
-      if (themeManager.preferencesLoaded && 
-          profileManager.currentProfile != null && 
+      if (themeManager.preferencesLoaded &&
+          profileManager.currentProfile != null &&
           !_hasInitialGreetingAnimated) {
         _startGreetingAnimation();
         _hasInitialGreetingAnimated = true;
-      } else if (!themeManager.preferencesLoaded || profileManager.currentProfile == null) {
+      } else if (!themeManager.preferencesLoaded ||
+          profileManager.currentProfile == null) {
         // Listen to both managers for changes
         themeManager.addListener(_startInitialGreetingOnPreferencesLoad);
         profileManager.addListener(_startInitialGreetingOnPreferencesLoad);
@@ -65,10 +69,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _startInitialGreetingOnPreferencesLoad() {
     if (!mounted) return;
-    
+
     final themeManager = Provider.of<ThemeManager>(context, listen: false);
     final profileManager = Provider.of<ProfileManager>(context, listen: false);
-    
+
     if (themeManager.preferencesLoaded &&
         profileManager.currentProfile != null &&
         !_hasInitialGreetingAnimated) {
@@ -84,15 +88,19 @@ class _HomeScreenState extends State<HomeScreen>
   void dispose() {
     _cursorTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    
+
     // Remove listeners from both managers
     if (mounted) {
-      Provider.of<ThemeManager>(context, listen: false)
-          .removeListener(_startInitialGreetingOnPreferencesLoad);
-      Provider.of<ProfileManager>(context, listen: false)
-          .removeListener(_startInitialGreetingOnPreferencesLoad);
+      Provider.of<ThemeManager>(
+        context,
+        listen: false,
+      ).removeListener(_startInitialGreetingOnPreferencesLoad);
+      Provider.of<ProfileManager>(
+        context,
+        listen: false,
+      ).removeListener(_startInitialGreetingOnPreferencesLoad);
     }
-    
+
     _animationController.dispose();
     super.dispose();
   }
@@ -322,73 +330,80 @@ class _HomeScreenState extends State<HomeScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-  toolbarHeight: 80.0,
-  titleSpacing: 16,
-  title: LayoutBuilder(
-    builder: (context, constraints) {
-      final maxWidth = constraints.maxWidth;
+          toolbarHeight: 80.0,
+          titleSpacing: 16,
+          title: LayoutBuilder(
+            builder: (context, constraints) {
+              final maxWidth = constraints.maxWidth;
 
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Profile Emoji Avatar (on left)
-          Consumer<ProfileManager>(
-            builder: (_, profileManager, __) {
-              final emoji = profileManager.currentProfile?.profileImage ?? '🙂';
-              return CircleAvatar(
-                radius: 26,
-                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                child: Text(
-                  emoji,
-                  style: const TextStyle(fontSize: 26),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 12),
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Profile Emoji Avatar (on left)
+                  Consumer<ProfileManager>(
+                    builder: (_, profileManager, __) {
+                      final emoji =
+                          profileManager.currentProfile?.profileImage ?? '🙂';
+                      return CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceVariant,
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 26),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 12),
 
-          // Text Column
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth * 0.7),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '$_animatedText${_showCursor && _isAnimating ? "|" : ""}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  // Text Column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // First text (greeting) - smaller
+                        SizedBox(
+                          width: maxWidth * 0.7,
+                          child: Text(
+                            '$_animatedText${_showCursor && _isAnimating ? "|" : ""}',
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize:
+                                      MediaQuery.of(context).size.width *
+                                      0.035, // Dynamic font size
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textScaleFactor: 1.0,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth * 0.7),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      activityTitle,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                        const SizedBox(height: 4),
+                        // Second text (activity title) - larger
+                        SizedBox(
+                          width: maxWidth * 0.7,
+                          child: Text(
+                            activityTitle,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize:
+                                      MediaQuery.of(context).size.width *
+                                      0.045, // Dynamic font size, larger than first
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textScaleFactor: 1.0,
-                    ),
-                  ),
-                ),
-              ],
+                        ),
+                      ],
                     ),
                   ),
                 ],
