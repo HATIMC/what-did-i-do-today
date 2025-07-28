@@ -7,17 +7,22 @@ class ThemeManager extends ChangeNotifier {
 
   ThemeMode _themeMode = ThemeMode.system; // Default to system theme
   Color _seedColor = Colors.deepPurple; // Default Material 3 seed color
+  bool _isLockEnabled =
+      false; // Default to lock disabled when app is first installed
+
   static const String _themeKey = 'app_theme_mode';
   static const String _colorKey = 'app_seed_color';
+  static const String _lockKey = 'app_lock_enabled';
 
   ThemeMode get themeMode => _themeMode;
   Color get seedColor => _seedColor;
+  bool get isLockEnabled => _isLockEnabled;
 
   ThemeManager() {
     _loadThemePreferences(); // Load both theme mode, color, and user name when the manager is created
   }
 
-  // Loads the saved theme mode and color from SharedPreferences
+  // Loads the saved theme mode, color, and lock setting from SharedPreferences
   Future<void> _loadThemePreferences() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -40,7 +45,9 @@ class ThemeManager extends ChangeNotifier {
       _seedColor = Colors.deepPurple; // Fallback to default if no preference
     }
 
-    // Load user name
+    // Load lock setting (defaults to false if not set)
+    _isLockEnabled = prefs.getBool(_lockKey) ?? false;
+
     _preferencesLoaded = true;
     notifyListeners();
   }
@@ -59,17 +66,25 @@ class ThemeManager extends ChangeNotifier {
     notifyListeners(); // Notify listeners about the change
   }
 
+  // Sets the lock enabled state and saves the preference
+  void setLockEnabled(bool enabled) {
+    _isLockEnabled = enabled;
+    _saveThemePreferences(); // Save all current preferences
+    notifyListeners(); // Notify listeners about the change
+  }
+
   // New: Sets a new user name and saves the preference
   void setUserName(String name) {
     _saveThemePreferences(); // Save all current preferences
     notifyListeners(); // Notify listeners about the change
   }
 
-  // Saves the current theme mode and color to SharedPreferences
+  // Saves the current theme mode, color, and lock setting to SharedPreferences
   Future<void> _saveThemePreferences() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_themeKey, _themeMode.index);
     await prefs.setInt(_colorKey, _seedColor.value);
+    await prefs.setBool(_lockKey, _isLockEnabled);
   }
 
   // You can also add a method to set theme based on system preference
@@ -90,7 +105,9 @@ class ThemeManager extends ChangeNotifier {
       effectiveBrightness = Brightness.dark;
     } else {
       // ThemeMode.system
-      effectiveBrightness = systemBrightness ?? Brightness.light; // Default to light if systemBrightness is null
+      effectiveBrightness =
+          systemBrightness ??
+          Brightness.light; // Default to light if systemBrightness is null
     }
 
     return ThemeData.from(
