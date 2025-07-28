@@ -411,25 +411,42 @@ class _HomeScreenState extends State<HomeScreen>
             },
           ),
           actions: [
-            PopupMenuButton<String>(
-              onSelected: (String result) {
-                if (result == 'settings') {
-                  _showBottomSheet(context, const SettingsBottomSheet());
-                } else if (result == 'about') {
-                  _showBottomSheet(context, const AboutBottomSheet());
-                }
+            // Settings Icon Button
+            IconButton(
+              onPressed: () {
+                _showBottomSheet(context, const SettingsBottomSheet());
               },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
-                  value: 'settings',
-                  child: Text('Settings'),
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Settings',
+              style: IconButton.styleFrom(
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceVariant.withOpacity(0.3),
+                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const PopupMenuItem<String>(
-                  value: 'about',
-                  child: Text('About'),
-                ),
-              ],
+              ),
             ),
+            const SizedBox(width: 8),
+            // About/More Icon Button
+            IconButton(
+              onPressed: () {
+                _showBottomSheet(context, const AboutBottomSheet());
+              },
+              icon: const Icon(Icons.info_outline),
+              tooltip: 'About',
+              style: IconButton.styleFrom(
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceVariant.withOpacity(0.3),
+                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
           ],
         ),
         body: Column(
