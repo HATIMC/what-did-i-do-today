@@ -5,6 +5,7 @@ import 'package:hello_world/features/settings_bottom_sheet.dart'; // Updated imp
 import 'package:hello_world/features/about_bottom_sheet.dart'; // Updated import path
 import 'package:hello_world/features/add_activity_bottom_sheet.dart'; // New import for add activity bottom sheet
 import 'package:hello_world/features/add_profile_bottom_sheet.dart'; // Import add profile bottom sheet
+import 'package:hello_world/features/profile_selector_bottom_sheet.dart'; // Import profile selector bottom sheet
 import 'package:hello_world/service/profile_manager.dart';
 import 'package:hello_world/service/theme_manager.dart'; // Import theme manager
 import 'package:provider/provider.dart'; // Import provider
@@ -103,18 +104,20 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   // Show profile selector bottom sheet
-  Future<void> _showProfileSelectorBottomSheet() async {
+  Future<void> _showProfileSelectorBottomSheet({
+    bool dismissible = false,
+  }) async {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      isDismissible: false, // Force user to select a profile
-      enableDrag: false, // Prevent dismissing by dragging
+      isDismissible: dismissible, // Allow dismissal when called from emoji tap
+      enableDrag: dismissible, // Allow dragging when called from emoji tap
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
       ),
       builder: (BuildContext context) {
         return PopScope(
-          canPop: false, // Prevent back button from dismissing
+          canPop: dismissible, // Allow back button when dismissible
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -457,11 +460,26 @@ class _HomeScreenState extends State<HomeScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-          toolbarHeight: 80.0,
-          titleSpacing: 16,
+          toolbarHeight: 120.0, // Increased height for 3-line layout
+          titleSpacing: 8,
           title: LayoutBuilder(
             builder: (context, constraints) {
-              final maxWidth = constraints.maxWidth;
+              // Calculate available space dynamically
+              final double avatarWidth = 56.0; // radius 28 * 2
+              final double actionsWidth = 100.0; // Reduced from 120.0
+              final double padding = 8.0; // Reduced from 24.0
+              final double availableTextWidth =
+                  constraints.maxWidth - avatarWidth - actionsWidth - padding;
+
+              // Dynamic spacing based on available width
+              final double spacing = availableTextWidth > 200 ? 12.0 : 8.0;
+
+              // Dynamic font size based on available width
+              final double baseFontSize = availableTextWidth > 250
+                  ? 18.0
+                  : availableTextWidth > 200
+                  ? 16.0
+                  : 15.0;
 
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -472,13 +490,13 @@ class _HomeScreenState extends State<HomeScreen>
                       // Show loading indicator if profiles haven't loaded yet
                       if (!profileManager.isLoaded) {
                         return CircleAvatar(
-                          radius: 26,
+                          radius: 28,
                           backgroundColor: Theme.of(
                             context,
                           ).colorScheme.surfaceVariant,
                           child: SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: 22,
+                            height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(
@@ -491,116 +509,152 @@ class _HomeScreenState extends State<HomeScreen>
 
                       final emoji =
                           profileManager.currentProfile?.profileImage ?? '🙂';
-                      return CircleAvatar(
-                        radius: 26,
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceVariant,
-                        child: Text(
-                          emoji,
-                          style: const TextStyle(fontSize: 26),
+                      return GestureDetector(
+                        onTap: () {
+                          _showBottomSheet(
+                            context,
+                            const ProfileSelectorBottomSheet(),
+                          );
+                        },
+                        child: CircleAvatar(
+                          radius: 28,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceVariant,
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 28),
+                          ),
                         ),
                       );
                     },
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: spacing),
 
-                  // Text Column
+                  // Text Column with 3 lines - using all remaining space
                   Expanded(
                     child: Consumer<ProfileManager>(
                       builder: (context, profileManager, child) {
-                        // Show loading text if profiles haven't loaded yet
                         if (!profileManager.isLoaded) {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              SizedBox(
-                                width: maxWidth * 0.7,
-                                child: Text(
-                                  'Loading...',
-                                  style: Theme.of(context).textTheme.bodyLarge
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize:
-                                            MediaQuery.of(context).size.width *
-                                            0.035,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onPrimaryContainer,
-                                      ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                              Text(
+                                'Loading...',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: baseFontSize,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimaryContainer,
+                                    ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 4),
-                              SizedBox(
-                                width: maxWidth * 0.7,
-                                child: Text(
-                                  'Please wait...',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineSmall
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize:
-                                            MediaQuery.of(context).size.width *
-                                            0.045,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onPrimaryContainer,
-                                      ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Please wait...',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w400,
+                                      fontSize: baseFontSize,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimaryContainer
+                                          .withOpacity(0.8),
+                                    ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Setting up...',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: baseFontSize,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimaryContainer,
+                                    ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           );
                         }
 
-                        // Normal content when loaded
+                        // Extract greeting and name from animated text
+                        final String greeting = _getGreeting();
+
+                        // Parse the animated text to show appropriate parts
+                        String greetingText = '';
+                        String nameText = '';
+
+                        if (_animatedText.isNotEmpty) {
+                          if (_animatedText.length <= greeting.length) {
+                            greetingText = _animatedText;
+                          } else {
+                            greetingText = greeting;
+                            final remainingText = _animatedText
+                                .substring(greeting.length)
+                                .trim();
+                            if (remainingText.startsWith('I am ')) {
+                              nameText = remainingText;
+                            }
+                          }
+                        }
+
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // First text (greeting) - smaller
-                            SizedBox(
-                              width: maxWidth * 0.7,
-                              child: Text(
-                                '$_animatedText${_showCursor && _isAnimating ? "|" : ""}',
-                                style: Theme.of(context).textTheme.bodyLarge
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize:
-                                          MediaQuery.of(context).size.width *
-                                          0.035,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onPrimaryContainer,
-                                    ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            // Line 1: Greeting (animated)
+                            Text(
+                              '$greetingText${_showCursor && _isAnimating && greetingText.length < greeting.length ? "|" : ""}',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: baseFontSize,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimaryContainer,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 4),
-                            // Second text (activity title) - larger
-                            SizedBox(
-                              width: maxWidth * 0.7,
-                              child: Text(
-                                activityTitle,
-                                style: Theme.of(context).textTheme.headlineSmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize:
-                                          MediaQuery.of(context).size.width *
-                                          0.045,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onPrimaryContainer,
-                                    ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            const SizedBox(height: 2),
+                            // Line 2: "I am [name]" (animated after greeting)
+                            Text(
+                              '$nameText${_showCursor && _isAnimating && greetingText.length >= greeting.length ? "|" : ""}',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w400,
+                                    fontSize: baseFontSize,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onPrimaryContainer
+                                        .withOpacity(0.8),
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            // Line 3: Activity title (static)
+                            Text(
+                              activityTitle,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: baseFontSize,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimaryContainer,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         );
