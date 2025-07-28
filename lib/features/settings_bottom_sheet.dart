@@ -132,6 +132,19 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               ],
             ),
             const SizedBox(height: 16),
+
+            // App Lock Toggle
+            SwitchListTile(
+              title: const Text('App Lock'),
+              subtitle: const Text(
+                'Require authentication when opening the app',
+              ),
+              value: themeManager.isLockEnabled,
+              onChanged: (bool value) {
+                themeManager.setLockEnabled(value);
+              },
+            ),
+
             // Dark Mode Toggle
             SwitchListTile(
               title: const Text('Dark Mode'),
