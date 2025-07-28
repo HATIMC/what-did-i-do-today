@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hello_world/features/settings_bottom_sheet.dart'; // Updated import path
 import 'package:hello_world/features/about_bottom_sheet.dart'; // Updated import path
 import 'package:hello_world/features/add_activity_bottom_sheet.dart'; // New import for add activity bottom sheet
+import 'package:hello_world/features/add_profile_bottom_sheet.dart'; // Import add profile bottom sheet
 import 'package:hello_world/service/profile_manager.dart';
 import 'package:hello_world/service/theme_manager.dart'; // Import theme manager
 import 'package:provider/provider.dart'; // Import provider
@@ -52,14 +53,19 @@ class _HomeScreenState extends State<HomeScreen>
         listen: false,
       );
 
-      // Check if both theme and profile are ready
+      // Check if preferences are loaded AND profile manager has finished loading
       if (themeManager.preferencesLoaded &&
-          profileManager.currentProfile != null &&
+          profileManager.isLoaded &&
           !_hasInitialGreetingAnimated) {
-        _startGreetingAnimation();
-        _hasInitialGreetingAnimated = true;
-      } else if (!themeManager.preferencesLoaded ||
-          profileManager.currentProfile == null) {
+        // Check if no profiles exist - force profile creation
+        if (_shouldShowProfileSelector(profileManager)) {
+          _showProfileSelectorBottomSheet();
+        } else if (profileManager.currentProfile != null) {
+          // Has profiles and current profile is set
+          _startGreetingAnimation();
+          _hasInitialGreetingAnimated = true;
+        }
+      } else if (!themeManager.preferencesLoaded || !profileManager.isLoaded) {
         // Listen to both managers for changes
         themeManager.addListener(_startInitialGreetingOnPreferencesLoad);
         profileManager.addListener(_startInitialGreetingOnPreferencesLoad);
@@ -74,13 +80,137 @@ class _HomeScreenState extends State<HomeScreen>
     final profileManager = Provider.of<ProfileManager>(context, listen: false);
 
     if (themeManager.preferencesLoaded &&
-        profileManager.currentProfile != null &&
+        profileManager.isLoaded &&
         !_hasInitialGreetingAnimated) {
-      _startGreetingAnimation();
-      _hasInitialGreetingAnimated = true;
+      // Check if no profiles exist - force profile creation
+      if (_shouldShowProfileSelector(profileManager)) {
+        _showProfileSelectorBottomSheet();
+      } else if (profileManager.currentProfile != null) {
+        // Has profiles and current profile is set
+        _startGreetingAnimation();
+        _hasInitialGreetingAnimated = true;
+      }
+
       // Remove both listeners
       themeManager.removeListener(_startInitialGreetingOnPreferencesLoad);
       profileManager.removeListener(_startInitialGreetingOnPreferencesLoad);
+    }
+  }
+
+  // Check if we should show profile selector (no profiles exist)
+  bool _shouldShowProfileSelector(ProfileManager profileManager) {
+    return profileManager.profiles.isEmpty;
+  }
+
+  // Show profile selector bottom sheet
+  Future<void> _showProfileSelectorBottomSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false, // Force user to select a profile
+      enableDrag: false, // Prevent dismissing by dragging
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
+      builder: (BuildContext context) {
+        return PopScope(
+          canPop: false, // Prevent back button from dismissing
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle indicator
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16.0),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Header with message
+                Column(
+                  children: [
+                    Icon(
+                      Icons.person_add,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Welcome!',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Please create your profile to get started',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+
+                // Add profile button
+                Consumer<ProfileManager>(
+                  builder: (context, profileManager, child) {
+                    return SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showMandatoryProfileBottomSheet();
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Create Profile'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    // After profile selection, start greeting animation
+    if (mounted) {
+      _startGreetingAnimation();
+      _hasInitialGreetingAnimated = true;
+    }
+  }
+
+  // Show mandatory profile creation bottom sheet (non-dismissible)
+  Future<void> _showMandatoryProfileBottomSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false, // Force user to create a profile
+      enableDrag: false, // Prevent dismissing by dragging
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
+      builder: (BuildContext context) {
+        return const AddProfileBottomSheet(isMandatory: true);
+      },
+    );
+
+    // After profile creation, start greeting animation
+    if (mounted) {
+      _startGreetingAnimation();
+      _hasInitialGreetingAnimated = true;
     }
   }
 
@@ -279,9 +409,6 @@ class _HomeScreenState extends State<HomeScreen>
       return 'What will I do tomorrow?';
     }
 
-    final int todayWeekday = today.weekday; // 1 (Mon) to 7 (Sun)
-    final int selectedWeekday = selected.weekday;
-
     if (selected.isBefore(today)) {
       if (diffDays >= -7 && diffDays <= 2) {
         return 'What did I do last $selectedWeekdayName?';
@@ -342,6 +469,26 @@ class _HomeScreenState extends State<HomeScreen>
                   // Profile Emoji Avatar (on left)
                   Consumer<ProfileManager>(
                     builder: (_, profileManager, __) {
+                      // Show loading indicator if profiles haven't loaded yet
+                      if (!profileManager.isLoaded) {
+                        return CircleAvatar(
+                          radius: 26,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceVariant,
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
                       final emoji =
                           profileManager.currentProfile?.profileImage ?? '🙂';
                       return CircleAvatar(
@@ -360,50 +507,104 @@ class _HomeScreenState extends State<HomeScreen>
 
                   // Text Column
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // First text (greeting) - smaller
-                        SizedBox(
-                          width: maxWidth * 0.7,
-                          child: Text(
-                            '$_animatedText${_showCursor && _isAnimating ? "|" : ""}',
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize:
-                                      MediaQuery.of(context).size.width *
-                                      0.035, // Dynamic font size
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimaryContainer,
+                    child: Consumer<ProfileManager>(
+                      builder: (context, profileManager, child) {
+                        // Show loading text if profiles haven't loaded yet
+                        if (!profileManager.isLoaded) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: maxWidth * 0.7,
+                                child: Text(
+                                  'Loading...',
+                                  style: Theme.of(context).textTheme.bodyLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize:
+                                            MediaQuery.of(context).size.width *
+                                            0.035,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimaryContainer,
+                                      ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        // Second text (activity title) - larger
-                        SizedBox(
-                          width: maxWidth * 0.7,
-                          child: Text(
-                            activityTitle,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize:
-                                      MediaQuery.of(context).size.width *
-                                      0.045, // Dynamic font size, larger than first
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimaryContainer,
+                              ),
+                              const SizedBox(height: 4),
+                              SizedBox(
+                                width: maxWidth * 0.7,
+                                child: Text(
+                                  'Please wait...',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize:
+                                            MediaQuery.of(context).size.width *
+                                            0.045,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimaryContainer,
+                                      ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                              ),
+                            ],
+                          );
+                        }
+
+                        // Normal content when loaded
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // First text (greeting) - smaller
+                            SizedBox(
+                              width: maxWidth * 0.7,
+                              child: Text(
+                                '$_animatedText${_showCursor && _isAnimating ? "|" : ""}',
+                                style: Theme.of(context).textTheme.bodyLarge
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize:
+                                          MediaQuery.of(context).size.width *
+                                          0.035,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimaryContainer,
+                                    ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            // Second text (activity title) - larger
+                            SizedBox(
+                              width: maxWidth * 0.7,
+                              child: Text(
+                                activityTitle,
+                                style: Theme.of(context).textTheme.headlineSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize:
+                                          MediaQuery.of(context).size.width *
+                                          0.045,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimaryContainer,
+                                    ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],
