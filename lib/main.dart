@@ -136,6 +136,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _initialAuthAttempted = true; // Mark initial attempt
     });
 
+    // Check if lock is enabled in settings
+    final themeManager = Provider.of<ThemeManager>(context, listen: false);
+    if (!themeManager.isLockEnabled) {
+      // Lock is disabled, allow access without authentication
+      setState(() {
+        _isAuthenticated = true;
+      });
+      return;
+    }
+
     bool authenticated = await _authenticateUser();
 
     if (mounted) {
