@@ -300,9 +300,12 @@ class _AddProfileBottomSheetState extends State<AddProfileBottomSheet> {
 
     if (widget.existingProfile != null) {
       final profileId = widget.existingProfile!.profileId;
+
       profileManager.updateProfileName(profileId, name);
       profileManager.updateProfileImage(profileId, _selectedEmoji);
-      profileManager.setCurrentProfile(profileId); // Ensure it's selected
+
+      // Don't change current profile when editing a different profile
+      // The update methods already call notifyListeners() which will trigger UI updates
     } else {
       final newProfile = Profile(
         profileId: const Uuid().v4(),
