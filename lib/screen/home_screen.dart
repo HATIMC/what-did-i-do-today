@@ -71,6 +71,9 @@ class _HomeScreenState extends State<HomeScreen>
         themeManager.addListener(_startInitialGreetingOnPreferencesLoad);
         profileManager.addListener(_startInitialGreetingOnPreferencesLoad);
       }
+
+      // Add listener for profile changes to re-animate greeting
+      profileManager.addListener(_onProfileChanged);
     });
   }
 
@@ -95,6 +98,15 @@ class _HomeScreenState extends State<HomeScreen>
       // Remove both listeners
       themeManager.removeListener(_startInitialGreetingOnPreferencesLoad);
       profileManager.removeListener(_startInitialGreetingOnPreferencesLoad);
+    }
+  }
+
+  void _onProfileChanged() {
+    if (!mounted) return;
+
+    // Only re-animate if the initial greeting has already been shown
+    if (_hasInitialGreetingAnimated) {
+      _startGreetingAnimation();
     }
   }
 
@@ -224,14 +236,15 @@ class _HomeScreenState extends State<HomeScreen>
 
     // Remove listeners from both managers
     if (mounted) {
-      Provider.of<ThemeManager>(
+      final themeManager = Provider.of<ThemeManager>(context, listen: false);
+      final profileManager = Provider.of<ProfileManager>(
         context,
         listen: false,
-      ).removeListener(_startInitialGreetingOnPreferencesLoad);
-      Provider.of<ProfileManager>(
-        context,
-        listen: false,
-      ).removeListener(_startInitialGreetingOnPreferencesLoad);
+      );
+
+      themeManager.removeListener(_startInitialGreetingOnPreferencesLoad);
+      profileManager.removeListener(_startInitialGreetingOnPreferencesLoad);
+      profileManager.removeListener(_onProfileChanged);
     }
 
     _animationController.dispose();
