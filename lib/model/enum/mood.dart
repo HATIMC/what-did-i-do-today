@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum ActivityMood {
-  veryHappy,
-  happy,
-  neutral,
-  sad,
-  verySad,
-}
+enum ActivityMood { veryHappy, happy, neutral, sad, verySad }
 
 extension MoodExtension on ActivityMood {
   String get name {
@@ -21,6 +15,36 @@ extension MoodExtension on ActivityMood {
         return 'Sad';
       case ActivityMood.verySad:
         return 'Very Sad';
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case ActivityMood.veryHappy:
+        return '😄';
+      case ActivityMood.happy:
+        return '😊';
+      case ActivityMood.neutral:
+        return '😐';
+      case ActivityMood.sad:
+        return '😔';
+      case ActivityMood.verySad:
+        return '😢';
+    }
+  }
+
+  ActivityMood get next {
+    switch (this) {
+      case ActivityMood.veryHappy:
+        return ActivityMood.happy;
+      case ActivityMood.happy:
+        return ActivityMood.neutral;
+      case ActivityMood.neutral:
+        return ActivityMood.sad;
+      case ActivityMood.sad:
+        return ActivityMood.verySad;
+      case ActivityMood.verySad:
+        return ActivityMood.veryHappy;
     }
   }
 }
