@@ -8,6 +8,8 @@ import 'package:hello_world/features/add_profile_bottom_sheet.dart'; // Import a
 import 'package:hello_world/features/profile_selector_bottom_sheet.dart'; // Import profile selector bottom sheet
 import 'package:hello_world/service/profile_manager.dart';
 import 'package:hello_world/service/theme_manager.dart'; // Import theme manager
+import 'package:hello_world/service/activity_manager.dart'; // Import activity manager
+import 'package:hello_world/model/enum/mood.dart'; // Import activity mood
 import 'package:provider/provider.dart'; // Import provider
 import 'package:table_calendar/table_calendar.dart'; // Import table_calendar
 import 'dart:async';
@@ -444,6 +446,34 @@ class _HomeScreenState extends State<HomeScreen>
         return 'What will I do that day?';
       }
     }
+  }
+
+  Widget _buildStatItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 28),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -938,52 +968,403 @@ class _HomeScreenState extends State<HomeScreen>
                     ), // Space between calendar and new list
 
                     const SizedBox(height: 10),
-                    ListView.builder(
-                      shrinkWrap: true, // Important for nested scrollables
-                      physics:
-                          const NeverScrollableScrollPhysics(), // Disable ListView's own scrolling
-                      itemCount: 5, // Number of dummy items
-                      itemBuilder: (context, index) {
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 8.0,
-                          ),
-                          elevation: 1,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          child: ListTile(
-                            leading: Icon(
-                              Icons.check_circle_outline,
-                              color: Theme.of(context).colorScheme.primary,
+                    // Activities ListView - Display real activities for selected date
+                    Consumer<ActivityManager>(
+                      builder: (context, activityManager, child) {
+                        if (!activityManager.isLoaded) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(32.0),
+                              child: CircularProgressIndicator(),
                             ),
-                            title: Text(
-                              'Activity ${index + 1}: Completed task X',
+                          );
+                        }
+
+                        // Get activities for the selected/focused date
+                        final selectedDate = _selectedDay ?? _focusedDay;
+                        final activities = activityManager.getActivitiesForDate(
+                          selectedDate,
+                        );
+
+                        if (activities.isEmpty) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32.0),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.event_available,
+                                    size: 64,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant
+                                        .withOpacity(0.5),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No activities for this day',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Tap the + button to add your first activity!',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
                             ),
-                            subtitle: Text(
-                              'Time: ${9 + index}:00 AM - Details about task ${index + 1}.',
-                            ),
-                            trailing: const Icon(
-                              Icons.arrow_forward_ios,
-                              size: 16,
-                            ),
-                            onTap: () {
-                              // Handle tap on activity item
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Tapped on Activity ${index + 1}',
+                          );
+                        }
+
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: activities.length,
+                          itemBuilder: (context, index) {
+                            final activity = activities[index];
+                            final time = TimeOfDay.fromDateTime(
+                              activity.activityDatetime,
+                            );
+                            final timeString = time.format(context);
+
+                            // Determine leading icon based on completion status
+                            Icon leadingIcon;
+                            if (activity.activityDone) {
+                              leadingIcon = Icon(
+                                Icons.check_circle,
+                                color: Theme.of(context).colorScheme.primary,
+                              );
+                            } else {
+                              leadingIcon = Icon(
+                                Icons.radio_button_unchecked,
+                                color: Theme.of(context).colorScheme.outline,
+                              );
+                            }
+
+                            // Build subtitle with location, mood, and tags
+                            List<String> subtitleParts = [];
+                            subtitleParts.add('$timeString');
+
+                            if (activity.location != null &&
+                                activity.location!.isNotEmpty) {
+                              subtitleParts.add('📍 ${activity.location!}');
+                            }
+
+                            if (activity.activityMood != ActivityMood.happy) {
+                              subtitleParts.add(activity.activityMood.emoji);
+                            }
+
+                            if (activity.tags.isNotEmpty) {
+                              subtitleParts.add(
+                                '#${activity.tags.take(2).join(' #')}${activity.tags.length > 2 ? '...' : ''}',
+                              );
+                            }
+
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16.0,
+                                vertical: 6.0,
+                              ),
+                              elevation: activity.activityStarred ? 3 : 1,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12.0),
+                                side: activity.activityStarred
+                                    ? BorderSide(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary.withOpacity(0.3),
+                                      )
+                                    : BorderSide.none,
+                              ),
+                              child: ListTile(
+                                leading: leadingIcon,
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        activity.activityTitle,
+                                        style: TextStyle(
+                                          decoration: activity.activityDone
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          color: activity.activityDone
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant
+                                              : null,
+                                        ),
+                                      ),
+                                    ),
+                                    if (activity.activityStarred)
+                                      Icon(
+                                        Icons.star,
+                                        size: 16,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                    if (activity.checklist.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 4),
+                                        child: Icon(
+                                          Icons.checklist,
+                                          size: 16,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outline,
+                                        ),
+                                      ),
+                                    if (activity.activityMedia.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 4),
+                                        child: Icon(
+                                          Icons.attachment,
+                                          size: 16,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outline,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                subtitle: Text(
+                                  subtitleParts.join(' • '),
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                              );
-                            },
+                                trailing: PopupMenuButton<String>(
+                                  itemBuilder: (context) => [
+                                    PopupMenuItem(
+                                      value: 'toggle_complete',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            activity.activityDone
+                                                ? Icons.radio_button_unchecked
+                                                : Icons.check_circle,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            activity.activityDone
+                                                ? 'Mark Incomplete'
+                                                : 'Mark Complete',
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'toggle_star',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            activity.activityStarred
+                                                ? Icons.star_border
+                                                : Icons.star,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            activity.activityStarred
+                                                ? 'Remove Star'
+                                                : 'Add Star',
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.red,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Delete',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  onSelected: (value) async {
+                                    switch (value) {
+                                      case 'toggle_complete':
+                                        await activityManager
+                                            .toggleActivityCompletion(
+                                              activity.activityId,
+                                            );
+                                        break;
+                                      case 'toggle_star':
+                                        await activityManager
+                                            .toggleActivityStar(
+                                              activity.activityId,
+                                            );
+                                        break;
+                                      case 'delete':
+                                        final confirmed = await showDialog<bool>(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text(
+                                              'Delete Activity',
+                                            ),
+                                            content: const Text(
+                                              'Are you sure you want to delete this activity?',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(
+                                                  context,
+                                                  false,
+                                                ),
+                                                child: const Text('Cancel'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(
+                                                  context,
+                                                  true,
+                                                ),
+                                                child: const Text('Delete'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirmed == true) {
+                                          await activityManager.deleteActivity(
+                                            activity.activityId,
+                                          );
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Activity deleted',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                        break;
+                                    }
+                                  },
+                                ),
+                                onTap: () {
+                                  // Show activity details or edit screen
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Tapped: ${activity.activityTitle}',
+                                      ),
+                                      action: SnackBarAction(
+                                        label: 'Details',
+                                        onPressed: () {
+                                          // TODO: Navigate to activity details screen
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Activity Statistics Card
+                    Consumer<ActivityManager>(
+                      builder: (context, activityManager, child) {
+                        if (!activityManager.isLoaded) {
+                          return const SizedBox.shrink();
+                        }
+
+                        final stats = activityManager.getActivityStats();
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16.0),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Activity Overview',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceAround,
+                                    children: [
+                                      _buildStatItem(
+                                        context,
+                                        icon: Icons.event_note,
+                                        label: 'Total',
+                                        value: stats['total'].toString(),
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                      _buildStatItem(
+                                        context,
+                                        icon: Icons.check_circle,
+                                        label: 'Completed',
+                                        value: stats['completed'].toString(),
+                                        color: Colors.green,
+                                      ),
+                                      _buildStatItem(
+                                        context,
+                                        icon: Icons.star,
+                                        label: 'Starred',
+                                        value: stats['starred'].toString(),
+                                        color: Colors.amber,
+                                      ),
+                                      _buildStatItem(
+                                        context,
+                                        icon: Icons.today,
+                                        label: 'Today',
+                                        value: stats['today'].toString(),
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.secondary,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         );
                       },
                     ),
-                    const SizedBox(height: 50),
-                    const Text('End of daily activities.'),
                     const SizedBox(height: 50),
                   ],
                 ),
