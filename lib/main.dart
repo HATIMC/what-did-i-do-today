@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hello_world/screen/home_screen.dart';
 import 'package:hello_world/service/theme_manager.dart';
 import 'package:hello_world/service/profile_manager.dart';
+import 'package:hello_world/service/activity_manager.dart';
 import 'package:provider/provider.dart';
 
 import 'package:local_auth/local_auth.dart';
@@ -16,6 +17,7 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeManager()),
         ChangeNotifierProvider(create: (_) => ProfileManager()),
+        ChangeNotifierProvider(create: (_) => ActivityManager()),
       ],
       child: const MyApp(),
     ),
